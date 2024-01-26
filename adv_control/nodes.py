@@ -13,6 +13,7 @@ from .nodes_sparsectrl import SparseCtrlMergedLoaderAdvanced, SparseCtrlLoaderAd
 from .nodes_loosecontrol import ControlNetLoaderWithLoraAdvanced
 from .nodes_deprecated import LoadImagesFromDirectory
 from .logger import logger
+from control_batch_method import BatchSpreadMethod, BatchIndexMethod, BatchSettings
 
 
 class TimestepKeyframeNode:
@@ -73,6 +74,7 @@ class ControlNetLoaderAdvanced:
                 "control_net_name": (folder_paths.get_filename_list("controlnet"), ),
             },
             "optional": {
+                "batch_method": ("BATCH_METHOD", ),
                 "timestep_keyframe": ("TIMESTEP_KEYFRAME", ),
             }
         }
@@ -82,10 +84,10 @@ class ControlNetLoaderAdvanced:
 
     CATEGORY = "Adv-ControlNet 🛂🅐🅒🅝"
 
-    def load_controlnet(self, control_net_name,
-                        timestep_keyframe: TimestepKeyframeGroup=None
-                        ):
+    def load_controlnet(self, control_net_name, batch_method: Batch_Method=BatchSpreadMethod(),
+                        timestep_keyframe: TimestepKeyframeGroup=None):
         controlnet_path = folder_paths.get_full_path("controlnet", control_net_name)
+        index_settings = IndexSettings()
         controlnet = load_controlnet(controlnet_path, timestep_keyframe)
         return (controlnet,)
     
@@ -136,6 +138,7 @@ class AdvancedControlNetApply:
                 "timestep_kf": ("TIMESTEP_KEYFRAME", ),
                 "latent_kf_override": ("LATENT_KEYFRAME", ),
                 "weights_override": ("CONTROL_NET_WEIGHTS", ),
+                "batch_method": ("BATCH_METHOD",),
             }
         }
 
@@ -148,11 +151,9 @@ class AdvancedControlNetApply:
     def apply_controlnet(self, positive, negative, control_net, image, strength, start_percent, end_percent,
                          mask_optional: Tensor=None,
                          timestep_kf: TimestepKeyframeGroup=None, latent_kf_override: LatentKeyframeGroup=None,
-                         weights_override: ControlWeights=None):
+                         weights_override: ControlWeights=None, batch_method=0):
         if strength == 0:
             return (positive, negative)
-
-        control_hint = image.movedim(-1,1)
         cnets = {}
 
         out = []
